@@ -84,7 +84,7 @@ kubectl get crd applications.argoproj.io
 
 ---
 
-# 2. [Kubernetes Deployment](argocd-nginx-demo-2/deployment.yaml)
+# 2. [Kubernetes Deployment](/deployment.yaml)
 
 The `deployment.yaml` file creates an Nginx Deployment with 2 replicas.
 
@@ -100,7 +100,7 @@ kubectl get deployment -n argocd-demo-2
 
 ---
 
-# 3. [Kubernetes Service](argocd-nginx-demo-2/service.yaml)
+# 3. [Kubernetes Service](/service.yaml)
 
 The `service.yaml` file creates a ClusterIP Service for the Nginx Pods.
 
@@ -124,7 +124,7 @@ matches the Pod label in the Deployment.
 
 ---
 
-# 4. [Argo CD Application](argocd-nginx-demo-2/applicatin.yaml)
+# 4. [Argo CD Application](/application.yaml)
 
 The `application.yaml` file defines the Argo CD Application.
 
