@@ -1,20 +1,25 @@
-apiVersion: apps/v1 
-kind: Deployment 
+apiVersion: apps/v1
+kind: Deployment
+
 metadata:
-  name: nginx-demo 
-  namespace: argocd-demo
+  name: nginx-demo
+  namespace: argocd-demo-2
+
 spec:
-  replicas: 2 
+  replicas: 2
+
   selector:
     matchLabels:
-      app: argocd-sample 
+      app: argocd-sample
+
   template:
     metadata:
       labels:
         app: argocd-sample
+
     spec:
       containers:
-        - name: nginx-deploy 
-          image: nginx:latest 
+        - name: nginx-deploy
+          image: nginx:latest
           ports:
-            - containerPort: 80 
+            - containerPort: 80
