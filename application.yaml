@@ -8,7 +8,7 @@ spec:
   project: default 
 
   source: 
-    repoURL: https://github.com/lok2003/argocd-learning.git 
+    repoURL: https://github.com/lok2003/argocd-nginx-demo-2.git 
     targetRevision: main 
     path: . 
   
@@ -16,3 +16,10 @@ spec:
     server: https://kubernetes.default.svc 
     namespace: argocd-demo 
 
+  syncPolicy:
+    automated:
+      prune: true 
+      selfHeal: true 
+    syncOptions:
+      - CreateNamespace=true 
+      
