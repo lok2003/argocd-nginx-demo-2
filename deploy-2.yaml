@@ -1,0 +1,21 @@
+apiVersion: apps/v1 
+kind: Deployment 
+metadata:
+  name: httpd-deployment
+  namespace: argocd-demo-2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpd 
+  template:
+    metadata:
+      labels:
+        app: httpd 
+    spec:
+      containers:
+        - name: httpd  
+          image: httpd:2.4 
+          ports:
+            - containerPort: 80 
+          
