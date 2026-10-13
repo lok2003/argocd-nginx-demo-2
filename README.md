@@ -582,24 +582,326 @@ git push origin main
 ```
 
 ---
+---
 
-# 16. Learning Outcomes
+# 16. Deployment Rollout Monitoring
 
-This project demonstrates practical knowledge of:
+Kubernetes provides commands to monitor Deployment rollouts and verify whether application updates have completed successfully.
 
-* Kubernetes Deployments
-* Kubernetes Services
-* Kubernetes namespaces
-* YAML manifests
-* Git and GitHub
-* Argo CD Applications
-* GitOps
-* Automated synchronization
-* Self-healing
-* Resource pruning
-* Argo CD troubleshooting
-* Git as the source of truth
-* Kubernetes desired state vs actual state
+### Check Rollout Status
+
+```bash
+kubectl rollout status deployment/httpd-demo -n argocd-demo-2
+```
+
+Expected output:
+
+```text
+deployment "httpd-demo" successfully rolled out
+```
+
+This confirms that the Deployment rollout has completed successfully.
+
+### Check Deployment Revision
+
+```bash
+kubectl get deployment httpd-demo -n argocd-demo-2 -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}'
+```
+
+This command displays the current Deployment revision number.
+
+### Check Rollout History
+
+```bash
+kubectl rollout history deployment/httpd-demo -n argocd-demo-2
+```
+
+Example output:
+
+```text
+deployment.apps/httpd-demo
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+3         <none>
+```
+
+Kubernetes stores Deployment rollout revisions when the Pod template changes.
+
+### Inspect a Specific Revision
+
+```bash
+kubectl rollout history deployment/httpd-demo --revision=7 -n argocd-demo-2
+```
+
+This displays the saved Pod template for the specified revision, including the container image and other recorded Pod configuration.
+
+### Inspect ReplicaSets
+
+```bash
+kubectl get replicasets -n argocd-demo-2
+```
+
+To inspect a specific ReplicaSet:
+
+```bash
+kubectl get replicaset <replicaset-name> -n argocd-demo-2 -o yaml
+```
+
+The ReplicaSet YAML contains the Pod template, including labels, containers, images, ports, volumes, mounts, node selectors, and tolerations when configured.
+
+**Important:** Old revisions may no longer be available because Kubernetes retains only a limited amount of rollout history by default. Revision numbers can also skip numbers.
+
+---
+
+# 17. Deployment Rollback Using kubectl
+
+Kubernetes supports rolling back a Deployment to a previously recorded revision.
+
+### Roll Back to a Specific Revision
+
+```bash
+kubectl rollout undo deployment/httpd-demo --to-revision=7 -n argocd-demo-2
+```
+
+This command attempts to restore the Pod template recorded in revision 7.
+
+### Roll Back to the Previous Revision
+
+```bash
+kubectl rollout undo deployment/httpd-demo -n argocd-demo-2
+```
+
+This command rolls back to the previous available revision.
+
+### Verify the Rollback
+
+Check the current image:
+
+```bash
+kubectl get deployment httpd-demo -n argocd-demo-2 -o jsonpath='{.spec.template.spec.containers[0].image}'
+```
+
+Check rollout status:
+
+```bash
+kubectl rollout status deployment/httpd-demo -n argocd-demo-2
+```
+
+Check the Pods:
+
+```bash
+kubectl get pods -n argocd-demo-2
+```
+
+Check the revision history:
+
+```bash
+kubectl rollout history deployment/httpd-demo -n argocd-demo-2
+```
+
+### Kubernetes Rollback vs. GitOps Rollback
+
+**Kubernetes rollback:**
+
+```bash
+kubectl rollout undo deployment/httpd-demo -n argocd-demo-2
+```
+
+Changes the live Deployment to a previously recorded revision. It does not change the Git repository.
+
+**GitOps rollback:**
+
+```bash
+git log --oneline
+git revert <commit-id>
+git push origin main
+```
+
+Creates a new Git commit that reverses the selected commit. Argo CD can then synchronize the desired state from Git.
+
+**Important:** This project uses Argo CD automated synchronization and self-healing. A manual Kubernetes rollback can be overwritten when Argo CD reconciles the Deployment with Git. For a GitOps-managed application, normally perform the rollback through Git.
+
+---
+
+# 18. Troubleshooting ImagePullBackOff
+
+During the practical exercise, an invalid container image tag was used:
+
+```yaml
+image: lok2003/frontend-dashboard:v1.999
+```
+
+The tag did not exist in Docker Hub, so Kubernetes could not pull the image.
+
+### Check Pod Status
+
+```bash
+kubectl get pods -n argocd-demo-2
+```
+
+Example:
+
+```text
+NAME                         READY   STATUS
+httpd-demo-66675c995c-gszvm   0/1     ImagePullBackOff
+```
+
+### Inspect Pod Events
+
+```bash
+kubectl describe pod <pod-name> -n argocd-demo-2
+```
+
+Look at the Events section for errors such as:
+
+```text
+ErrImagePull
+ImagePullBackOff
+not found
+```
+
+### Understand the Error
+
+- `ErrImagePull`: Kubernetes failed to pull the container image.
+- `ImagePullBackOff`: Kubernetes is retrying the image pull with increasing delays.
+- An incorrect image name, nonexistent tag, registry authentication problem, or network issue can cause image-pull failures.
+
+### Fix the Image in Git
+
+Restore a valid image in `deployment.yaml`:
+
+```yaml
+image: lok2003/frontend-dashboard:v1.23
+```
+
+Commit and push the correction:
+
+```bash
+git add deployment.yaml
+git commit -m "Fix invalid image tag"
+git push origin main
+```
+
+Check Argo CD:
+
+```bash
+kubectl get application nginx-demo-2 -n argocd
+```
+
+Check the Deployment:
+
+```bash
+kubectl rollout status deployment/httpd-demo -n argocd-demo-2
+```
+
+Check the Pods:
+
+```bash
+kubectl get pods -n argocd-demo-2
+```
+
+**Lesson learned:** Keep the image tag in Git valid. During a failed rolling update, Kubernetes may keep existing healthy Pods running while new Pods fail to start, but zero downtime is not guaranteed.
+
+---
+
+# 19. Argo CD Sync Status vs. Health Status
+
+Argo CD reports synchronization and health separately.
+
+### Sync Status
+
+- `Synced`: Live resources match the desired configuration in Git.
+- `OutOfSync`: Live resources differ from the desired configuration in Git.
+- `Unknown`: Argo CD cannot determine the synchronization status.
+
+### Health Status
+
+- `Healthy`: Resources are operating as expected.
+- `Progressing`: Resources are still being created, updated, or recovering.
+- `Degraded`: One or more resources are unhealthy.
+- `Missing`: An expected resource is missing.
+- `Suspended`: A resource is suspended, where applicable.
+- `Unknown`: Argo CD cannot determine the resource's health.
+
+### Example from This Project
+
+When the invalid image tag was pushed, Argo CD showed a synchronization status of `Synced` while the health status became unhealthy.
+
+This happened because Git contained the same invalid image configuration that Kubernetes was trying to use.
+
+After restoring the valid image and allowing the Deployment to recover, the application returned to:
+
+```text
+NAME           SYNC STATUS   HEALTH STATUS
+nginx-demo-2   Synced        Healthy
+```
+
+**Key difference:**
+
+- `Synced` means the live configuration matches Git.
+- `Healthy` means the resources are operating as expected.
+
+An application can be `Synced` but `Degraded`.
+
+---
+
+# 20. Understanding Argo CD Prune in Practice
+
+The Argo CD Application uses:
+
+```yaml
+automated:
+  prune: true
+  selfHeal: true
+```
+
+### What Does Prune Do?
+
+Pruning removes Argo CD-managed resources from Kubernetes when those resources are removed from the desired configuration in Git and the change is synchronized.
+
+### Example: Removing a Service
+
+The repository contains:
+
+```text
+argocd-nginx-demo-2/
+├── application.yaml
+├── deployment.yaml
+├── service.yaml
+└── README.md
+```
+
+The Service is named `nginx-service`.
+
+Check the Service:
+
+```bash
+kubectl get service nginx-service -n argocd-demo-2
+```
+
+If `service.yaml` is removed from Git, committed, and pushed, Argo CD can delete the live Service during synchronization because pruning is enabled.
+
+After deletion, this command:
+
+```bash
+kubectl get service nginx-service -n argocd-demo-2
+```
+
+returns a `NotFound` error.
+
+### Are the Service Details Lost?
+
+When the Service is deleted, its live configuration and ClusterIP are no longer available as a live Kubernetes resource.
+
+However, the original manifest may still be recoverable from Git history if it was committed previously.
+
+If the manifest is restored and synchronized, Kubernetes creates the Service again. The recreated Service generally receives a new ClusterIP unless a specific IP is configured and available.
+
+**Important:** Pruning deletes resources; use it carefully in production environments.
+
+---
+
 
 ---
 
