@@ -20,6 +20,6 @@ spec:
     spec:
       containers:
         - name: nginx-deploy
-          image: ${{ secrets.IAMGE_V1 }}
+          image: lok2003/react-app:latest
           ports:
             - containerPort: 80
