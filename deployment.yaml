@@ -20,6 +20,6 @@ spec:
     spec:
       containers:
         - name: nginx-deploy
-          image: lok2003/frontend-dashboard:v1.999
+          image: lok2003/frontend-dashboard:v1.23
           ports:
             - containerPort: 80
