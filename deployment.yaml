@@ -20,6 +20,6 @@ spec:
     spec:
       containers:
         - name: nginx-deploy
-          image: httpd:latest
+          image: ${{ secrets.IAMGE_V1 }}
           ports:
             - containerPort: 80
